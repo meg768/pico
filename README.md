@@ -1,2 +1,2 @@
-# pico
+# Pico
 Pico
