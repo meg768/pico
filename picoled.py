@@ -3,7 +3,6 @@ import machine
 class PicoLED:
 
     def __init__(self):
-        self.foo = 1
         self.timer = machine.Timer()
         self.led = machine.Pin('LED', machine.Pin.OUT)
     
