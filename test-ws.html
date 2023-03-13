@@ -22,7 +22,7 @@
 <script>
     // var ws = new WebSocket("ws://" + location.hostname + ":3000");
     var ws = new WebSocket("ws://192.168.86.52:3000");
-    
+
     var bar = document.querySelector(".progress-bar");
     ws.onmessage = function (evt) {
         var data = JSON.parse(evt.data)

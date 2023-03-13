@@ -1,6 +1,6 @@
 from ws import WebSocketServer, WebSocketClient
-from machine import Pin
-    
+
+
 class MeasureDistance(WebSocketClient):
 
     def __init__(self, connection, debug = True):
@@ -61,7 +61,9 @@ class Server(WebSocketServer):
 class App:
 
     def run(self):
-        from wifi import WiFi 
+        from wifi import WiFi
+        from machine import Pin
+        from pushover import Pushover        
         import secrets, time
 
         wifi = WiFi()
@@ -69,6 +71,9 @@ class App:
 
         server = Server()
         server.start(3000)
+        
+        pushover = Pushover(user = secrets.PUSHOVER_USER, token = secrets.PUSHOVER_TOKEN)
+        pushover.send('Websocket server started.')
         
         led = Pin('LED', Pin.OUT)
 
@@ -82,6 +87,7 @@ class App:
             pass
         
         server.stop()
+        led.off();
 
 
 
