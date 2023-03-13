@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html> 
+  <head>
+    <meta charset="UTF-8" />
+    <title>TEST handlerFunc_1</title>
+  </head>
+  <body>
+    <h1>TEST handlerFunc_2</h1>
+    <div id='result'>...</div>
+    Wait for websocket connect and get result printed above.
+    <script>
+      console.log("started");
+      webSocket = new WebSocket("ws://192.168.86.52");
+      
+      webSocket.onopen = (event) => {
+      
+        webSocket.send("Here's some text that the server is urgently awaiting!");
+      };
+      webSocket.onmessage  = (event) => {
+      console.log(event.data);
+        document.getElementById("result").textContent = event.data;
+      };
+    </script>
+  </body>
+</html>

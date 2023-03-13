@@ -6,7 +6,6 @@ class PicoLED:
         self.timer = machine.Timer()
         self.led = machine.Pin('LED', machine.Pin.OUT)
     
-
     def cancel(self):
         self.timer.deinit()
         
