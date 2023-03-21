@@ -1,0 +1,50 @@
+<breakfast_menu>
+    <rss xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:content="http://purl.org/rss/1.0/modules/content/" xmlns:atom="http://www.w3.org/2005/Atom" version="2.0">
+    </rss>
+	<title>
+        TESTING
+
+
+        
+	</title>
+
+    <!-- This is a comment-->
+
+    <foo>
+    Yahooo
+    </foo>
+
+
+	<title>
+        Titke 2
+	</title>
+
+	<food>
+		<name>Belgian Waffles</name>
+		<price>$5.95</price>
+		<description>
+            Two of our famous Belgian Waffles with plenty of real maple syrup
+        </description>
+		<calories>650</calories>
+	</food>
+
+	<food>
+		<name>Strawberry Belgian Waffles</name>
+		<price>$7.95</price>
+		<description>
+            Light Belgian waffles covered with strawberries and whipped cream
+        </description>
+		<calories>900</calories>
+	</food>
+
+	<food>
+		<name>Swedish Waffles</name>
+		<price>$0.95</price>
+		<description>
+            Svenska våfflor
+        </description>
+		<calories>600</calories>
+	</food>
+
+
+</breakfast_menu>
