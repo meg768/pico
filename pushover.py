@@ -1,3 +1,6 @@
+import request
+
+
 class Pushover:
     
     def __init__(self, user, token):
@@ -6,8 +9,7 @@ class Pushover:
         self.user  = user
         self.token = token
         
-    def send(self, message, title = None):
-        import request
+    def push(self, message, title = None):
 
         params = {
             'message': message,
@@ -25,3 +27,6 @@ class Pushover:
 
         return reply
         
+        
+if __name__ == '__main__':
+    print(1)

@@ -4,7 +4,7 @@ from . import simple
 
 class MQTTClient(simple.MQTTClient):
     DELAY = 2
-    DEBUG = False
+    DEBUG = True
 
     def delay(self, i):
         utime.sleep(self.DELAY)

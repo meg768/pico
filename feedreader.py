@@ -1,23 +1,25 @@
 import time, request, gc, machine, re, json
 import uasyncio as asyncio
 
-class RSSParser:
+class FeedReader:
     
     
-    def __init__(self, feeds):
+    def __init__(self, feeds, debug):
         
         from led import OnboardLED 
 
         self.cache = []
         self.feeds = feeds
         self.latest = {}
+        self.debug = debug
         self.led = OnboardLED()
        
 
 
 
     def print(self, *args):
-        print(*args)
+        if self.debug:
+            print(*args)
         
                 
     def parseRSS(self, xml):
@@ -191,19 +193,9 @@ class RSSParser:
         
 
         
-    def notify(self, name, date, title):
-        self.print('{name}: {date} - {title}'.format(name = name, date = date, title = title))
+    def fetch(self):
 
-
-    def error(self, message):
-        self.print(message)        
-        
-        
-    def poll(self):
-
-                
-        self.led.on()
-
+    
         for feed in self.feeds:
 
             try:
@@ -216,9 +208,7 @@ class RSSParser:
                 feedURL  = feed['url']
                 
                 
-                self.led.flash(100)
                 entry = self.getLatestRSS(feedURL)
-                self.led.off()
                                   
                 if entry != None:
                     
@@ -226,172 +216,66 @@ class RSSParser:
                         self.latest[feedName] = entry
                         
                         if not entry['title'] in self.cache:
-                            self.cache.insert(0, entry['title'])
+                            name  = feed['name']
+                            date  = entry['date']
+                            title = entry['title']
+                            
+                            self.print('{name}: {date} - {title}'.format(name = name, date = date, title = title))
+                            self.cache.insert(0, title)
 
-                            self.notify(name = feed['name'], date = entry['date'], title = entry['title'])
+                            yield {'name':name, 'date':date, 'title':title}
                         else:
                             self.print('Duplicate message: "{text}"'.format(text = entry['title']))
                         
                         while len(self.cache) > 10:
                             self.cache.pop()
 
-                    self.led.flash(1)
-                    time.sleep(10)
-                    self.led.off()
 
             except Exception as error:
-                self.error("Error parsing feed '{name}' - {error}".format(name = feed['name'], error = error))
+                self.print("Error parsing feed '{name}' - {error}".format(name = feed['name'], error = error))
                 pass
             
  
 
+if __name__ == '__main__':
 
-class App(RSSParser):
-    
-    
-    def __init__(self, debug = True):
-     
-        feeds = [
-            #{'name':'Dagens Industri', 'url':'https://digital.di.se/rss'},
-            {'name':'SVT', 'url':'https://www.svt.se/nyheter/rss.xml'},
-            {'name':'Sydsvenskan', 'url':'https://www.sydsvenskan.se/feeds/feed.xml'},
-            {'name':'Expressen', 'url':'https://feeds.expressen.se/nyheter'},
-            {'name':'Aftonbladet', 'url':'https://rss.aftonbladet.se/rss2/small/pages/sections/senastenytt'},
-            {'name':'SvD', 'url':'https://www.svd.se/?service=rss'},
-            {'name':'Google', 'url':'https://news.google.com/rss?hl=sv&gl=SE&ceid=SE:sv'}
-        ]
-        
-        
-#        from mqtt import MQTTClient
-        
-        from umqtt.simple2 import MQTTClient
-        from led import OnboardLED
-        
-        super().__init__(feeds)
-        
-        from wifi import WiFi
-        from pushover import Pushover
-
-        from secrets import PUSHOVER_USER, PUSHOVER_TOKEN_NEWS
-        from secrets import WIFI_SSID, WIFI_PASSWORD
-        from secrets import MQTT_HOST, MQTT_USERNAME, MQTT_PASSWORD, MQTT_TOPIC, MQTT_PORT
-
-    
-        self.debug = debug
-        self.pushover = Pushover(user = PUSHOVER_USER, token = PUSHOVER_TOKEN_NEWS)
-        self.led = OnboardLED()
-     
-     
-        wifi = WiFi(debug = self.debug)
-        wifi.connect(ssid = WIFI_SSID, password = WIFI_PASSWORD)
-
-        self.mqtt = MQTTClient(client_id = 'MEG', server = MQTT_HOST, user = MQTT_USERNAME, password = MQTT_PASSWORD, port = MQTT_PORT, keepalive = 60)
+    class App():
 
 
-    def print(self, *args):
-        if self.debug:
-            print(*args)
-
-        
-        
-        
-    def blink(self):
-        try:
-            while True:
-                self.led.toggle()
-                time.sleep(0.1)
-
-        except KeyboardInterrupt:
-            pass
-        
-        self.led.off()
-
-          
-        
-    def push(self, title, message):
-
-        try:
-            self.pushover.push(title = title, message = message)
-        except:
-            pass
-        
-
-    def publish(self, payload):
-        
-
-        try:
-            if not isinstance(payload, str):
-                payload = json.dumps(payload)
-              
-            self.print("Publishing '{payload}'.".format(payload = payload))
-                       
-            self.mqtt.connect()
-            self.mqtt.publish(topic = 'Matrix/64x32', msg = payload.encode('utf-16'), retain = True)
-            self.mqtt.disconnect()
+        def __init__(self, debug = True):
+            from secrets import WIFI_SSID, WIFI_PASSWORD
+            from wifi import WiFi
             
-        except Exception as error:
-            self.print('Could not publish.', error)
+            self.debug = debug
             
-                    
-                
-    def notify(self, name, date, title):
+            wifi = WiFi(debug = self.debug)
+            wifi.connect(ssid = WIFI_SSID, password = WIFI_PASSWORD)
         
-        try:
-            super().notify(name = name, date = date, title = title)
-            
-            payload = {
-                'text': '{name} - {title}'.format(name = name, title = title),
-                'textColor': 'auto'
-            }
-                       
-            self.publish(payload)
-            self.push(message = title, title = name)
-            
-        except Exception as error:
-            self.print('Problem notifying -', error)
-            pass
-                
-
-
-    def error(self, message):
-
-
-        try:
-            super().error(message)
-            self.send(title = 'Error', message = message)
-            
-        except:
-            pass
-                
         
-    def run(self):
+        def run(self):
 
 
-        self.led.off()
-        
-        try:
+            feeds = [
+                #{'name':'Dagens Industri', 'url':'https://digital.di.se/rss'},
+                {'name':'SVT', 'url':'https://www.svt.se/nyheter/rss.xml'},
+                {'name':'Sydsvenskan', 'url':'https://www.sydsvenskan.se/feeds/feed.xml'},
+                {'name':'Expressen', 'url':'https://feeds.expressen.se/nyheter'},
+                {'name':'Aftonbladet', 'url':'https://rss.aftonbladet.se/rss2/small/pages/sections/senastenytt'},
+                {'name':'SvD', 'url':'https://www.svd.se/?service=rss'},
+                {'name':'Google', 'url':'https://news.google.com/rss?hl=sv&gl=SE&ceid=SE:sv'}
+            ]
             
-            while True:
             
-                self.poll()                
-                        
-                for index in range(60 * 1):
-                    self.led.toggle()
-                    time.sleep(1)
-
-        except Exception as error:
-            self.print('Error: {error}'.format(error = error))
-            self.send(title = 'Error', message = error)
+            reader = FeedReader(feeds, debug = self.debug)
             
-        finally:
-            self.blink()
- 
+            for entry in reader.fetch():
+                print(entry)            
 
 
 
-app = App(debug = True)
+    App().run()
 
-app.run()
+
 
 
 
