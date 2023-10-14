@@ -87,20 +87,19 @@ if __name__ == '__main__':
         def __init__(self):
          
             
-            from wifi import WiFi
-            from secrets import WIFI_SSID, WIFI_PASSWORD
+            from wifi import connectToWiFi
             from mqtt import MQTTClient
             
-            from secrets import MQTT_HOST, MQTT_USERNAME, MQTT_PASSWORD, MQTT_TOPIC, MQTT_PORT
+            from config import MQTT_HOST, MQTT_USERNAME, MQTT_PASSWORD, MQTT_TOPIC, MQTT_PORT
+            from config import WIFI_SSID, WIFI_PASSWORD
             
             self.mqtt = MQTTClient(client_id = 'MEG', server = MQTT_HOST, user = MQTT_USERNAME, password = MQTT_PASSWORD, port = MQTT_PORT, keepalive = 60)
 
-            wifi = WiFi()
-            wifi.connect(ssid = WIFI_SSID, password = WIFI_PASSWORD)
+            connectToWiFi(WIFI_SSID, WIFI_PASSWORD)
 
 
         def fetchWeather(self):
-            from secrets import OPEN_WEATHER_APPID
+            from config import OPEN_WEATHER_APPID
             
             weather = OpenWeatherMap(OPEN_WEATHER_APPID, lat = 55.71, long = 13.19)
             
@@ -125,11 +124,15 @@ if __name__ == '__main__':
             
             
         def run(self):
+            from config import PUSHOVER_USER, PUSHOVER_TOKEN
+
+            
             for text in self.fetchWeather():
                 
                 self.mqtt.connect()
                 self.mqtt.publish(topic = 'Matrix/64x32', msg = text.encode('utf-16'), retain = True)
                 self.mqtt.disconnect()
+                
                 print(text)
         
 

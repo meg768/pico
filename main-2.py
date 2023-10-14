@@ -1,136 +1,179 @@
-import rp2
-import network
-import ubinascii
-import machine
-import time
-
-import socket
-from umqtt.simple import MQTTClient
-from machine import Pin
+import time, request, gc, machine, re, json
+import uasyncio as asyncio
 
 
 
-secrets = {
-    'ssid': 'Julia',
-    'pw': 'potatismos',
-    'timezone' : 'Europe/Brussels',
-    'mqtt_username' : 'meg768',
-    'mqtt_key' : 'potatismos',
-    'broker' : '192.168.86.50',
-    'port' : 1883,
-    'client_id' : 'pico-w-XXXXXX',
-    'subtopic' : 'topic/LED/#',
-    'pubtopic' : 'topic/subtopic/PicoW'
-    }
-
-last_message = 0
-message_interval = 10
-counter = 0
-
-#
-# Set country to avoid possible errors / https://randomnerdtutorials.com/micropython-mqtt-esp32-esp8266/
-rp2.country('NL')
-
-wlan = network.WLAN(network.STA_IF)
-wlan.active(True)
-# If you need to disable powersaving mode
-
-# See the MAC address in the wireless chip OTP
-mac = ubinascii.hexlify(network.WLAN().config('mac'),':').decode()
-print('mac = ' + mac)
-
-# Other things to query
-# print(wlan.config('channel'))
-# print(wlan.config('essid'))
-# print(wlan.config('txpower'))
-
-# Load login data from different file for safety reasons
-ssid = secrets['ssid']
-pw = secrets['pw']
-broker = secrets['broker']
-sub_topic = secrets['subtopic']
-pub_topic = secrets['pubtopic']
-#client_id = ubinascii.hexlify(machine.unique_id())
-#client_id = mac
-client_id = secrets['client_id']
-
-wlan.connect(ssid, pw)
-
-# Wait for connection with 10 second timeout
-timeout = 10
-while timeout > 0:
-    if wlan.status() < 0 or wlan.status() >= 3:
-        break
-    timeout -= 1
-    print('Waiting for connection...')
-    time.sleep(1)
+class App():
     
-# Handle connection error
-# Error meanings
-# 0  Link Down
-# 1  Link Join
-# 2  Link NoIp
-# 3  Link Up
-# -1 Link Fail
-# -2 Link NoNet
-# -3 Link BadAuth
-if wlan.status() != 3:
-    raise RuntimeError('Wi-Fi connection failed')
-else:
-    led = machine.Pin('LED', machine.Pin.OUT)
-    for i in range(wlan.status()):
-        led.on()
-        time.sleep(.1)
-        led.off()
-    print('Connected')
-    status = wlan.ifconfig()
-    print('ip = ' + status[0])
     
-### Topic Setup ###
+    def __init__(self, debug = True):
+     
+        feeds = [
+            #{'name':'Dagens Industri', 'url':'https://digital.di.se/rss'},
+            {'name':'SVT', 'url':'https://www.svt.se/nyheter/rss.xml'},
+            {'name':'Sydsvenskan', 'url':'https://www.sydsvenskan.se/feeds/feed.xml'},
+            {'name':'Expressen', 'url':'https://feeds.expressen.se/nyheter'},
+            {'name':'Aftonbladet', 'url':'https://rss.aftonbladet.se/rss2/small/pages/sections/senastenytt'},
+            {'name':'SvD', 'url':'https://www.svd.se/?service=rss'},
+            {'name':'Google', 'url':'https://news.google.com/rss?hl=sv&gl=SE&ceid=SE:sv'}
+        ]
+        
+        
+#        from mqtt import MQTTClient
+        
 
-def sub_cb(topic, msg):
-  print((topic, msg))
-  if msg == b'LEDon':
-    print('Device received LEDon message on subscribed topic')
-    led.value(1)
-  if msg == b'LEDoff':
-    print('Device received LEDoff message on subscribed topic')
-    led.value(0)
+        from feedreader import FeedReader
+        from pushover import Pushover
+        from mqtt import MQTTClient
+        from wifi import WiFi
+        from led import OnboardLED
+        
+        from config import PUSHOVER_USER, PUSHOVER_TOKEN_NEWS
+        from config import WIFI_SSID, WIFI_PASSWORD
+        from config import MQTT_HOST, MQTT_USERNAME, MQTT_PASSWORD, MQTT_TOPIC, MQTT_PORT
+        from config import OPEN_WEATHER_APPID
+
+        self.debug = debug
+        self.loop = 0
 
 
-def connect_and_subscribe():
-  global client_id, mqtt_server, topic_sub
-  client = MQTTClient(client_id, server = broker, user = 'meg768', password = 'potatismos')
-  client.set_callback(sub_cb)
-  client.connect()
-  client.subscribe(sub_topic)
-  print('Connected to %s MQTT broker as client ID: %s, subscribed to %s topic' % (broker, client_id, sub_topic))
-  return client
+        wifi = WiFi(debug = self.debug)
+        wifi.connect(ssid = WIFI_SSID, password = WIFI_PASSWORD)
 
-def restart_and_reconnect():
-  print('Failed to connect to MQTT broker. Reconnecting...')
-  time.sleep(10)
-  machine.reset()
+        self.pushover = Pushover(user = PUSHOVER_USER, token = PUSHOVER_TOKEN_NEWS)
+        self.led = OnboardLED()
+        self.mqtt = MQTTClient(client_id = 'MEG', server = MQTT_HOST, user = MQTT_USERNAME, password = MQTT_PASSWORD, port = MQTT_PORT, keepalive = 60)
+        self.reader = FeedReader(feeds = feeds, debug = self.debug)
 
-try:
-  client = connect_and_subscribe()
-except OSError as e:
-  restart_and_reconnect()
 
-while True:
-  import json
-  try:
-    client.check_msg()
-    if (time.time() - last_message) > message_interval:
-      pub_msg = b'Hello #%d' % counter
-      payload = {
-          'text': 'He asd asdflidjsf asdf sadf asdöaidjsf awasdf öasiodf X',
-          'textColor': 'blue'
-      }
-      pub_msg = json.dumps(payload).encode('utf-16')
-      #pub_msg = "åäö 1223 `fäd  X"
-      client.publish('Matrix/64x32', pub_msg)
-      last_message = time.time()
-      counter += 1
-  except OSError as e:
-    restart_and_reconnect()
+    def print(self, *args):
+        if self.debug:
+            print(*args)
+
+        
+        
+        
+    def blink(self):
+        try:
+            while True:
+                self.led.toggle()
+                time.sleep(0.1)
+
+        except KeyboardInterrupt:
+            pass
+        
+        self.led.off()
+
+          
+        
+    def push(self, title, message, url = None):
+
+        try:
+            self.pushover.push(title = title, message = message, url = url)
+
+        except Exception as error:
+            self.print('Could not push -', error)
+            pass
+        
+
+    def publish(self, payload):
+        
+
+        try:
+            if not isinstance(payload, str):
+                payload = json.dumps(payload)
+              
+            self.print("Publishing '{payload}'.".format(payload = payload))
+                       
+            self.mqtt.connect()
+            self.mqtt.publish(topic = 'Matrix/64x32', msg = payload.encode('utf-16'), retain = True)
+            self.mqtt.disconnect()
+            
+        except Exception as error:
+            self.print('Could not publish -', error)
+            pass
+            
+
+
+
+
+    def fetchWeather(self):
+        from config import OPEN_WEATHER_APPID
+        from openweathermap import OpenWeatherMap
+
+        weather = OpenWeatherMap(OPEN_WEATHER_APPID, lat = 55.71, long = 13.19)
+        
+        weather.fetch()
+
+        text = 'Just nu {A} och {B}°'
+        text = text.format(A = weather.current.weatherDescription(), B = weather.current.temperature())
+        yield text
+
+        text = 'Soluppgång {A} - solnedgång {B}'
+        text = text.format(A = weather.current.sunrise(), B = weather.current.sunset())
+        yield text
+
+        text = 'I morgon {A} och {B}° ({C}°)'
+        text = text.format(A = weather.daily[1].weatherDescription(), B = weather.daily[1].maxTemperature(), C = weather.daily[1].minTemperature())
+        yield text
+
+        text = 'I övermorgon {A} och {B}° ({C}°)'
+        text = text.format(A = weather.daily[2].weatherDescription(), B = weather.daily[2].maxTemperature(), C = weather.daily[2].minTemperature())
+        yield text
+
+
+    def fetchNews(self):
+        yield from self.reader.fetch()
+        
+    def run(self):
+
+        if True:
+            
+            while True:
+            
+                self.loop += 1
+                self.led.on()
+                
+                for entry in self.fetchNews():
+                    self.print(entry)
+            
+                    payload = {
+                        'text': '{A} - {B}'.format(A = entry['name'], B = entry['title']),
+                        'textColor': 'auto'
+                    }
+                         
+                    self.publish(payload)
+                    self.push(title = entry['name'], message = entry['title'], url = entry['link'])
+                                            
+
+                if (self.loop % 5) == 0:
+                    for entry in self.fetchWeather():
+                        self.print(entry)
+                        
+                        payload = {
+                            'text': entry,
+                            'textColor': 'auto'
+                        }                    
+
+                        self.publish(payload)
+                        
+                    
+                self.led.flash(10)                    
+                time.sleep(60)
+
+#        except Exception as error:
+#             self.print('Error: {error}'.format(error = error))
+#             self.push(title = 'Error', message = error)
+
+
+
+
+app = App(debug = True)
+
+app.run()
+
+
+
+
+
+

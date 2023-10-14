@@ -4,7 +4,7 @@ import uasyncio as asyncio
 class FeedReader:
     
     
-    def __init__(self, feeds, debug):
+    def __init__(self, feeds, debug = False):
         
         from led import OnboardLED 
 
@@ -206,8 +206,7 @@ class FeedReader:
 
                 feedName = feed['name']
                 feedURL  = feed['url']
-                
-                
+                            
                 entry = self.getLatestRSS(feedURL)
                                   
                 if entry != None:
@@ -219,11 +218,12 @@ class FeedReader:
                             name  = feed['name']
                             date  = entry['date']
                             title = entry['title']
+                            link = entry['link']
                             
                             self.print('{name}: {date} - {title}'.format(name = name, date = date, title = title))
                             self.cache.insert(0, title)
 
-                            yield {'name':name, 'date':date, 'title':title}
+                            yield {'name':name, 'date':date, 'title':title, 'link':link}
                         else:
                             self.print('Duplicate message: "{text}"'.format(text = entry['title']))
                         
@@ -243,7 +243,7 @@ if __name__ == '__main__':
 
 
         def __init__(self, debug = True):
-            from secrets import WIFI_SSID, WIFI_PASSWORD
+            from config import WIFI_SSID, WIFI_PASSWORD
             from wifi import WiFi
             
             self.debug = debug
@@ -265,8 +265,8 @@ if __name__ == '__main__':
                 {'name':'Google', 'url':'https://news.google.com/rss?hl=sv&gl=SE&ceid=SE:sv'}
             ]
             
-            
             reader = FeedReader(feeds, debug = self.debug)
+
             
             for entry in reader.fetch():
                 print(entry)            
