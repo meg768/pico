@@ -86,7 +86,7 @@ class App():
             self.print("Publishing '{payload}'.".format(payload = payload))
                        
             self.mqtt.connect()
-            self.mqtt.publish(topic = 'Matrix/64x32', msg = payload.encode('utf-16'), retain = True)
+            self.mqtt.publish(topic = 'matrix/64x32', msg = payload.encode('utf-16'), retain = True)
             self.mqtt.disconnect()
             
         except Exception as error:
@@ -137,6 +137,7 @@ class App():
                     self.print(entry)
             
                     payload = {
+                        'animation': 'text',
                         'text': '{A} - {B}'.format(A = entry['name'], B = entry['title']),
                         'textColor': 'auto'
                     }

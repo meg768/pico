@@ -26,7 +26,7 @@ class App():
         from pushover import Pushover
         from mqtt import MQTTClient
         from wifi import WiFi
-        from led import OnboardLED
+        from picoled import PicoLED
         
         from config import PUSHOVER_USER, PUSHOVER_TOKEN_NEWS
         from config import WIFI_SSID, WIFI_PASSWORD
@@ -41,7 +41,7 @@ class App():
         wifi.connect(ssid = WIFI_SSID, password = WIFI_PASSWORD)
 
         self.pushover = Pushover(user = PUSHOVER_USER, token = PUSHOVER_TOKEN_NEWS)
-        self.led = OnboardLED()
+        self.led = PicoLED()
         self.mqtt = MQTTClient(client_id = 'MEG', server = MQTT_HOST, user = MQTT_USERNAME, password = MQTT_PASSWORD, port = MQTT_PORT, keepalive = 60)
         self.reader = FeedReader(feeds = feeds, debug = self.debug)
 
@@ -86,7 +86,7 @@ class App():
             self.print("Publishing '{payload}'.".format(payload = payload))
                        
             self.mqtt.connect()
-            self.mqtt.publish(topic = 'Matrix/64x32', msg = payload.encode('utf-16'), retain = True)
+            self.mqtt.publish(topic = 'matrix/64x32', msg = payload.encode('utf-16'), retain = True)
             self.mqtt.disconnect()
             
         except Exception as error:
